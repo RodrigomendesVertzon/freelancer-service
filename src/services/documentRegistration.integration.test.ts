@@ -29,8 +29,112 @@ vi.mock("./storageService", () => ({
   deleteObject: vi.fn().mockResolvedValue(undefined),
 }));
 
-const AUTH_USER_ID = 900001;
+/*
+ * Gera um CPF matematicamente valido para testes.
+ * O prefixo usa parte do timestamp para reduzir
+ * drasticamente a possibilidade de colisao.
+ */
+function gerarCpfValido(seed: number): string {
+  let base = String(seed % 1_000_000_000)
+    .padStart(9, "0");
 
+  // Evita CPFs formados pelo mesmo digito.
+  if (/^(\d)\1{8}$/.test(base)) {
+    base = "123456789";
+  }
+
+  const calcularDigito = (
+    numeros: string,
+    pesoInicial: number
+  ) => {
+    let soma = 0;
+
+    for (let i = 0; i < numeros.length; i++) {
+      soma +=
+        Number(numeros[i]) *
+        (pesoInicial - i);
+    }
+
+    const resto = soma % 11;
+
+    return resto < 2
+      ? 0
+      : 11 - resto;
+  };
+
+  const primeiroDigito =
+    calcularDigito(base, 10);
+
+  const segundoDigito =
+    calcularDigito(
+      base + primeiroDigito,
+      11
+    );
+
+  return (
+    base +
+    primeiroDigito +
+    segundoDigito
+  );
+}
+
+/*
+ * Identificador exclusivo desta execucao.
+ *
+ * Date.now() sozinho normalmente seria suficiente,
+ * mas acrescentamos um valor aleatorio para permitir
+ * inclusive execucoes paralelas.
+ */
+const RUN_ID =
+  `${Date.now()}-${Math.floor(
+    Math.random() * 1_000_000
+  )}`;
+
+/*
+ * auth_user_id precisa continuar numerico/BIGINT.
+ *
+ * Mantemos o valor dentro da faixa segura do
+ * JavaScript e do BIGINT UNSIGNED.
+ */
+const AUTH_USER_ID =
+  Date.now() * 1000 +
+  Math.floor(Math.random() * 1000);
+
+/*
+ * CPF valido e diferente por execucao.
+ */
+const TEST_CPF =
+  gerarCpfValido(AUTH_USER_ID);
+
+/*
+ * Email exclusivo.
+ */
+const TEST_EMAIL =
+  `integracao-${RUN_ID}@example.com`;
+
+/*
+ * Telefone/WhatsApp exclusivo.
+ *
+ * Formato:
+ * 11 + 9 + oito digitos
+ */
+const telefoneSufixo =
+  String(
+    AUTH_USER_ID % 100_000_000
+  ).padStart(8, "0");
+
+const TEST_WHATSAPP =
+  `119${telefoneSufixo}`;
+
+/*
+ * Contatos de emergencia tambem exclusivos.
+ */
+const TEST_PHONE_1 =
+  `118${telefoneSufixo}`;
+
+const TEST_PHONE_2 =
+  `117${telefoneSufixo}`;
+  
 let freelancerId: number;
 let termoUsoId: number;
 let termoLgpdId: number;
@@ -44,39 +148,46 @@ describe("Upload de documento + sincronizacao do cadastro", () => {
      * Não usamos o freelancer id=1 para não alterar
      * os dados utilizados nos testes manuais.
      */
-    const [result]: any = await db.query(
-      `
-      INSERT INTO freelancer (
-        auth_user_id,
-        cpf,
-        nome,
-        data_nascimento,
-        email,
-        telefone_whatsapp,
-        tipo_chave_pix,
-        chave_pix,
-        email_verificado,
-        whatsapp_verificado,
-        status,
-        cadastro_status
-      )
-      VALUES (
-        ?,
-        '11144477735',
-        'Freelancer Integracao',
-        '1990-01-12',
-        'integracao@example.com',
-        '11999999999',
-        'CPF',
-        '11144477735',
-        0,
-        0,
-        'DISPONIVEL',
-        'INCOMPLETO'
-      )
-      `,
-      [AUTH_USER_ID]
-    );
+const [result]: any = await db.query(
+  `
+  INSERT INTO freelancer (
+    auth_user_id,
+    cpf,
+    nome,
+    data_nascimento,
+    email,
+    telefone_whatsapp,
+    tipo_chave_pix,
+    chave_pix,
+    email_verificado,
+    whatsapp_verificado,
+    status,
+    cadastro_status
+  )
+  VALUES (
+    ?,
+    ?,
+    'Freelancer Integracao',
+    '1990-01-12',
+    ?,
+    ?,
+    'CPF',
+    ?,
+    0,
+    0,
+    'DISPONIVEL',
+    'INCOMPLETO'
+  )
+  `,
+  [
+    AUTH_USER_ID,
+    TEST_CPF,
+    TEST_EMAIL,
+    TEST_WHATSAPP,
+    TEST_CPF,
+  ]
+);
+
 
     freelancerId = result.insertId;
 
@@ -121,24 +232,27 @@ describe("Upload de documento + sincronizacao do cadastro", () => {
      * Da mesma forma, ajuste somente se sua tabela
      * utilizar nomes diferentes.
      */
-    await db.query(
-      `
-      INSERT INTO freelancer_contato_emergencia (
-        freelancer_id,
-        ordem,
-        nome,
-        telefone,
-        parentesco
-      )
-      VALUES
-        (?, 1, 'Contato Teste 1', '11988888881', 'AMIGO'),
-        (?, 2, 'Contato Teste 2', '11988888882', 'AMIGO')
-      `,
-      [
-        freelancerId,
-        freelancerId,
-      ]
-    );
+   await db.query(
+  `
+  INSERT INTO freelancer_contato_emergencia (
+    freelancer_id,
+    ordem,
+    nome,
+    telefone,
+    parentesco
+  )
+  VALUES
+    (?, 1, 'Contato Teste 1', ?, 'AMIGO'),
+    (?, 2, 'Contato Teste 2', ?, 'AMIGO')
+  `,
+  [
+    freelancerId,
+    TEST_PHONE_1,
+
+    freelancerId,
+    TEST_PHONE_2,
+  ]
+);
 
     /*
      * Biometria já enviada, mas ainda não avaliada.
