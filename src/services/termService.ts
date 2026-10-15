@@ -1,4 +1,5 @@
 import * as repo from "../repositories/freelancerRepository";
+import { synchronizeCadastroStatus } from "./cadastroStatusService";
 
 export async function getCurrentTerms(
   authUserId: number
@@ -144,6 +145,9 @@ export async function acceptCurrentTerm(params: {
       userAgent: params.userAgent,
       correlationId: params.correlationId,
     });
+    await synchronizeCadastroStatus(
+  freelancerId
+);
   } catch (error: any) {
 
     /*

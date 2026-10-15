@@ -271,3 +271,49 @@ export async function getRegistrationSummary(
     },
   };
 }
+export type CadastroStatus =
+  | "INCOMPLETO"
+  | "PENDENTE_VALIDACAO"
+  | "REJEITADO"
+  | "ATIVO";
+
+export function determineCadastroStatus(summary: {
+  cadastroCompleto: boolean;
+  dadosFaltantes: string[];
+  validacoesPendentes: string[];
+  problemasValidacao: string[];
+}): CadastroStatus {
+
+  /*
+   * 1. Se falta qualquer dado obrigatório,
+   * o cadastro continua incompleto.
+   */
+  if (
+    !summary.cadastroCompleto ||
+    summary.dadosFaltantes.length > 0
+  ) {
+    return "INCOMPLETO";
+  }
+
+  /*
+   * 2. Uma rejeição tem prioridade sobre
+   * validações ainda pendentes.
+   */
+  if (summary.problemasValidacao.length > 0) {
+    return "REJEITADO";
+  }
+
+  /*
+   * 3. Cadastro está completo, mas ainda
+   * existem verificações aguardando conclusão.
+   */
+  if (summary.validacoesPendentes.length > 0) {
+    return "PENDENTE_VALIDACAO";
+  }
+
+  /*
+   * 4. Não falta dado, não existe rejeição
+   * e não existe validação pendente.
+   */
+  return "ATIVO";
+}

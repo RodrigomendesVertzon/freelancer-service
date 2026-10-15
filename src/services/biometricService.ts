@@ -1,6 +1,9 @@
 import crypto from "crypto";
 import path from "path";
 import * as repo from "../repositories/freelancerRepository";
+import { synchronizeCadastroStatus }
+  from "./cadastroStatusService";
+
 import {
   uploadObject,
   deleteObject,
@@ -112,6 +115,10 @@ export async function uploadFreelancerBiometric(params: {
       actorAuthUserId: params.authUserId,
       correlationId: params.correlationId,
     });
+    await synchronizeCadastroStatus(
+  freelancerId
+);
+
   } catch (error) {
 
     // Compensacao:

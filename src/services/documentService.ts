@@ -1,4 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
+import { synchronizeCadastroStatus }
+  from "./cadastroStatusService";
+
 
 import {
   findIdByAuthUserId,
@@ -134,6 +137,9 @@ export async function uploadFreelancerDocument(params: {
       actorAuthUserId: params.authUserId,
       correlationId: params.correlationId,
     });
+    await synchronizeCadastroStatus(
+  freelancerId
+);
   } catch (error) {
     /*
      * Compensação:

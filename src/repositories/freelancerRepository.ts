@@ -391,3 +391,49 @@ export async function getRegistrationStatus(
 
   return rows[0] ?? null;
 }
+export async function updateCadastroStatus(
+  freelancerId: number,
+  novoStatus:
+    | "INCOMPLETO"
+    | "PENDENTE_VALIDACAO"
+    | "REJEITADO"
+    | "ATIVO"
+) {
+  const [result]: any = await db.query(
+    `
+    UPDATE freelancer
+       SET cadastro_status = ?,
+           updated_at = NOW(3),
+           versao = versao + 1
+     WHERE id = ?
+       AND cadastro_status <> ?
+    `,
+    [
+      novoStatus,
+      freelancerId,
+      novoStatus,
+    ]
+  );
+
+  return result.affectedRows > 0;
+}
+export async function findById(
+  freelancerId: number
+) {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `
+    SELECT
+      id,
+      auth_user_id,
+      cadastro_status,
+      status,
+      versao
+    FROM freelancer
+    WHERE id = ?
+    LIMIT 1
+    `,
+    [freelancerId]
+  );
+
+  return rows[0] ?? null;
+}
